@@ -1,0 +1,83 @@
+package br.com.carlos.rampap;
+
+import java.math.BigDecimal;
+import br.com.sankhya.extensions.actionbutton.AcaoRotinaJava;
+import br.com.sankhya.extensions.actionbutton.ContextoAcao;
+import br.com.sankhya.extensions.actionbutton.Registro;
+import br.com.sankhya.jape.EntityFacade;
+import br.com.sankhya.jape.core.JapeSession;
+import br.com.sankhya.jape.dao.JdbcWrapper;
+import br.com.sankhya.jape.sql.NativeSql;
+import br.com.sankhya.modelcore.util.EntityFacadeFactory;
+
+public class CorrigeImpostos implements AcaoRotinaJava { //
+
+	@Override
+	public void doAction(ContextoAcao ctx) throws Exception {
+		Registro[] linha = ctx.getLinhas();
+
+		if (linha.length == 1) {
+			try {
+				Registro registro = linha[0];
+				BigDecimal nunota = (BigDecimal) registro.getCampo("NUNOTA");
+				BigDecimal sequencia = (BigDecimal) registro.getCampo("SEQUENCIA");
+				Double base = (Double) ctx.getParam("BASE");
+				Double aliquota = (Double) ctx.getParam("ALIQUOTA");
+				Double valor = (Double) ctx.getParam("VALOR");
+				Integer cst = (Integer) ctx.getParam("CST");
+				Integer codimp = (Integer) ctx.getParam("CODIMP");
+
+                updateRegister(nunota, sequencia, base,aliquota, valor, cst, codimp);
+                
+				//consultaImpostos(nunota, sequencia, base);
+                ctx.setMensagemRetorno("Parabéns!!! Atualizado com sucesso!");
+			} catch (Exception e) {
+				ctx.mostraErro(e.getMessage());
+			}
+
+		}
+
+	}
+
+	
+	public void updateRegister(BigDecimal nunota, BigDecimal sequencia, Double Base,Double aliquota, Double valor,Integer cst, Integer codimp) throws Exception {
+
+		JapeSession.SessionHandle hnd = null;
+		JdbcWrapper jdbc = null;
+		NativeSql query = null;
+
+		try {
+			String update = "UPDATE TGFDIN SET BASE = :BASE, ALIQUOTA = :ALIQUOTA, VALOR = :VALOR, CST = :CST, BASERED = :BASE, VLRCRED =:VALOR WHERE NUNOTA = :NUNOTA AND SEQUENCIA = :SEQUENCIA AND CODIMP = :CODIMP";
+
+			hnd = JapeSession.open();
+			hnd.setCanTimeout(false);
+			hnd.setFindersMaxRows(-1);
+			EntityFacade entity = EntityFacadeFactory.getDWFFacade();
+			jdbc = entity.getJdbcWrapper();
+			jdbc.openSession();
+			query = new NativeSql(jdbc);
+			query.setNamedParameter("BASE", Base);
+			query.setNamedParameter("ALIQUOTA",aliquota);
+			query.setNamedParameter("NUNOTA", nunota);
+			query.setNamedParameter("SEQUENCIA", sequencia);
+			query.setNamedParameter("VALOR",valor);
+			query.setNamedParameter("CST",cst);
+			query.setNamedParameter("CODIMP",codimp);
+
+			query.appendSql(update);
+			query.executeUpdate();
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception("Erro ao atualizar o registro: " + e.getMessage());
+		}
+
+		finally {
+			JapeSession.close(hnd);
+			JdbcWrapper.closeSession(jdbc);
+			NativeSql.releaseResources(query);
+
+		}
+
+	}
+
+}
